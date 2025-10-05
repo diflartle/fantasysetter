@@ -164,7 +164,6 @@ The script handles Yahoo's position eligibility system:
 
 ## Security Notes
 
-- `CLIENT_ID` and `CLIENT_SECRET` are currently hardcoded in `app.py:13-14` - move these to `.env` for production
 - Never commit `yahoo_tokens.json`, `rankings.json`, or `.env` to version control
 - Use app-specific passwords for email (not your main account password)
 
