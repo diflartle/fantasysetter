@@ -187,7 +187,7 @@ def choose_lineup(players, slots):
             continue
         
         available = get_available_positions(player)
-        if len(available) == 1:
+        if len(available) == 1 and player['rank'] < 9999:
             assigned[available[0]].append(player)
             used.add(player["player_key"])
     
