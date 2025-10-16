@@ -4,10 +4,11 @@ Automated Yahoo Fantasy Hockey lineup optimizer that sets your daily roster base
 
 ## Overview
 
-This project provides two complementary tools for managing your Yahoo Fantasy Hockey team:
+This project provides tools for managing your Yahoo Fantasy Hockey team:
 
 1. **`auto_lineup.py`** - Automated command-line script for daily lineup optimization (production use)
 2. **`app.py`** - Interactive Flask web UI for manual lineup management and initial OAuth setup
+3. **`rankings_editor.html`** - Standalone drag-and-drop editor for managing player rankings
 
 ## Features
 
@@ -83,6 +84,11 @@ Create `rankings.json` with your player rankings (lower = better):
 
 Players not in `rankings.json` will be ranked 9999 (benched by default).
 
+**Visual Editor:** Open `rankings_editor.html` in your browser for a drag-and-drop interface to reorder players. The editor allows you to:
+- Visually reorder players by dragging them
+- Save updated rankings as a downloadable JSON file
+- Copy rankings to clipboard for quick editing
+
 ## Usage
 
 ### Initial OAuth Setup (First Time Only)
@@ -131,7 +137,8 @@ Create a scheduled task to run `auto_lineup.py` daily at 10:00 AM.
 | File | Purpose |
 |------|---------|
 | `auto_lineup.py` | Main automated script for daily lineup management |
-| `app.py` | Flask web UI to deal with authorizing your Yahoo account permissions. |
+| `app.py` | Flask web UI to deal with authorizing your Yahoo account permissions |
+| `rankings_editor.html` | Standalone drag-and-drop editor for managing player rankings |
 | `rankings.json` | Your custom player rankings (not tracked in git) |
 | `yahoo_tokens.json` | OAuth tokens (auto-refreshed, not tracked in git) |
 | `.env.example` | Template for environment variables |
