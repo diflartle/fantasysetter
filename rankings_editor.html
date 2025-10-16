@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Rankings Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #saveBtn {
+            background: #667eea;
+            color: white;
+        }
+
+        #saveBtn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #copyBtn {
+            background: #48bb78;
+            color: white;
+        }
+
+        #copyBtn:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .feedback {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .feedback.success {
+            background: #c6f6d5;
+            color: #22543d;
+            display: block;
+        }
+
+        #playerList {
+            list-style: none;
+        }
+
+        .player-item {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            cursor: move;
+            transition: all 0.2s;
+        }
+
+        .player-item:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+
+        .player-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .player-item.drag-over {
+            border-color: #667eea;
+            border-style: dashed;
+            background: #e9ecfc;
+        }
+
+        .rank-number {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .player-name {
+            flex: 1;
+            font-size: 16px;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .drag-handle {
+            color: #cbd5e0;
+            font-size: 20px;
+            cursor: grab;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Player Rankings Editor</h1>
+        <p class="subtitle">Drag and drop to reorder players</p>
+
+        <div class="button-container">
+            <button id="saveBtn">Save rankings.json</button>
+            <button id="copyBtn">Copy JSON</button>
+        </div>
+
+        <div id="feedback" class="feedback"></div>
+
+        <ul id="playerList"></ul>
+    </div>
+
+    <script>
+        // Initial rankings data
+        const initialRankings = {
+            "Sam Reinhart": 4,
+            "Wyatt Johnston": 7,
+            "Jesper Bratt": 5,
+            "Timo Meier": 9,
+            "Tom Wilson": 6,
+            "Blake Coleman": 14,
+            "Noah Dobson": 8,
+            "Charlie McAvoy": 12,
+            "Seth Jones": 11,
+            "Alexander Nikishin": 13,
+            "Lian Bichsel": 16,
+            "Aliaksei Protas": 10,
+            "Mike Matheson": 15,
+            "Connor Bedard": 3,
+            "Nathan MacKinnon": 2,
+            "Leon Draisaitl": 1,
+            "Joey Daccord": 17,
+            "Scott Wedgewood": 18
+        };
+
+        let players = [];
+
+        // Initialize players array sorted by rank
+        function initializePlayers() {
+            players = Object.entries(initialRankings)
+                .map(([name, rank]) => ({ name, rank }))
+                .sort((a, b) => a.rank - b.rank);
+            renderPlayers();
+        }
+
+        // Render player list
+        function renderPlayers() {
+            const playerList = document.getElementById('playerList');
+            playerList.innerHTML = '';
+
+            players.forEach((player, index) => {
+                const li = document.createElement('li');
+                li.className = 'player-item';
+                li.draggable = true;
+                li.dataset.index = index;
+
+                li.innerHTML = `
+                    <div class="rank-number">${index + 1}</div>
+                    <div class="player-name">${player.name}</div>
+                    <div class="drag-handle">⋮⋮</div>
+                `;
+
+                // Drag event listeners
+                li.addEventListener('dragstart', handleDragStart);
+                li.addEventListener('dragover', handleDragOver);
+                li.addEventListener('drop', handleDrop);
+                li.addEventListener('dragenter', handleDragEnter);
+                li.addEventListener('dragleave', handleDragLeave);
+                li.addEventListener('dragend', handleDragEnd);
+
+                playerList.appendChild(li);
+            });
+        }
+
+        // Drag and drop handlers
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            if (this !== draggedElement) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            if (draggedElement !== this) {
+                const draggedIndex = parseInt(draggedElement.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+
+                // Reorder players array
+                const draggedPlayer = players[draggedIndex];
+                players.splice(draggedIndex, 1);
+                players.splice(targetIndex, 0, draggedPlayer);
+
+                // Re-render
+                renderPlayers();
+            }
+
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.player-item').forEach(item => {
+                item.classList.remove('drag-over');
+            });
+        }
+
+        // Generate rankings JSON object
+        function generateRankingsJSON() {
+            const rankings = {};
+            players.forEach((player, index) => {
+                rankings[player.name] = index + 1;
+            });
+            return rankings;
+        }
+
+        // Save button handler
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const rankings = generateRankingsJSON();
+            const jsonString = JSON.stringify(rankings, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rankings.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showFeedback('Rankings saved! Check your downloads folder.');
+        });
+
+        // Copy button handler
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+            const rankings = generateRankingsJSON();
+            const jsonString = JSON.stringify(rankings, null, 2);
+
+            try {
+                await navigator.clipboard.writeText(jsonString);
+                showFeedback('JSON copied to clipboard!');
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = jsonString;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showFeedback('JSON copied to clipboard!');
+            }
+        });
+
+        // Show feedback message
+        function showFeedback(message) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = message;
+            feedback.className = 'feedback success';
+
+            setTimeout(() => {
+                feedback.className = 'feedback';
+            }, 3000);
+        }
+
+        // Initialize on page load
+        initializePlayers();
+    </script>
+</body>
+</html>
