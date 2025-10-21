@@ -338,7 +338,13 @@ def send_discord_embed(title, assigned, bench):
             "inline": True
         })
 
-    bench_names = ", ".join(p["name"] for p in bench) or "—"
+    # Build bench names with game status icons
+    # If rank < 9999, player has a game today (since adjust_rankings_with_schedule adds 9999 for no game)
+    bench_names_list = []
+    for p in bench:
+        icon = "🏒" if p["rank"] < 9999 else "⏸️"
+        bench_names_list.append(f"{icon} {p['name']}")
+    bench_names = ", ".join(bench_names_list) or "—"
 
     embed = {
         "title": title,
