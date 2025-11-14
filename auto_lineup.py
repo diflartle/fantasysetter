@@ -1,6 +1,6 @@
 import os, requests, base64, json, xml.etree.ElementTree as ET
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, timezone, date
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -22,11 +22,11 @@ TEAM_ABBREV_MAP = {
 }
 
 def send_email(subject, body):
-    sender = os.getenv("EMAIL_FROM")
-    recipient = os.getenv("EMAIL_TO")
-    password = os.getenv("EMAIL_PASS")
-    server = os.getenv("SMTP_SERVER")
-    port = int(os.getenv("SMTP_PORT"))
+    sender = os.environ["EMAIL_FROM"]
+    recipient = os.environ["EMAIL_TO"]
+    password = os.environ["EMAIL_PASS"]
+    server = os.environ["SMTP_SERVER"]
+    port = int(os.environ["SMTP_PORT"])
 
     msg = MIMEMultipart()
     msg["From"] = formataddr(("Fantasy Setter", sender))
@@ -319,6 +319,68 @@ def has_lineup_changed(players, assigned, bench):
     
     return False
 
+def check_roster_sanity(players):
+    """
+    Performs roster sanity checks:
+      1. If roster > 18 players, ensure extras are IR-eligible.
+      2. If roster == 18 but at least one player is IR-eligible, warn that an IR slot is unused.
+    """
+    roster_size = len(players)
+
+    # Identify IR-eligible players (IR, IR+, NA)
+    ir_eligible = [
+        p for p in players
+        if any(tag in p["eligible"] for tag in ("IR", "IR+", "NA"))
+    ]
+    ir_count = len(ir_eligible)
+
+    # --- Case 1: Too many players but not enough IR eligibility ---
+    if roster_size > 18:
+        overage = roster_size - 18
+
+        if ir_count < overage:
+            msg_lines = [
+                f"⚠️ Roster sanity issue detected!",
+                f"You have **{roster_size} total players**, which is **{overage} over** the normal 18 slots.",
+                "",
+                f"However, only **{ir_count} players** are IR/IR+/NA eligible.",
+                f"You should have **at least {overage} IR-eligible players**.",
+                "",
+                "IR-eligible players:",
+            ]
+
+            for p in ir_eligible:
+                tags = "/".join(p["eligible"])
+                msg_lines.append(f"- {p['name']} [{tags}]")
+
+            msg_lines.append("Drop someone or fix roster positions.")
+
+            send_discord_message("Roster eligibility mismatch", "\n".join(msg_lines))
+            # Nothing else to check in this case
+            return
+
+    # --- Case 2: Exactly 18 players but IR slot is wasted ---
+    if roster_size == 18 and ir_count > 0:
+        msg_lines = [
+            f"⚠️ IR slot unused!",
+            f"You have **exactly 18 players**, meaning your active roster is full.",
+            "",
+            f"However, **{ir_count} players** are IR/IR+/NA eligible.",
+            "That means you can:",
+            "  1. Move an IR-eligible player to IR, and",
+            "  2. Add a free agent.",
+            "",
+            "IR-eligible players:",
+        ]
+
+        for p in ir_eligible:
+            tags = "/".join(p["eligible"])
+            msg_lines.append(f"- {p['name']} [{tags}]")
+
+        send_discord_message("Unused IR Slot Available", "\n".join(msg_lines))
+
+    # Otherwise: roster looks fine
+
 def send_discord_embed(title, assigned, bench):
     import requests, os
     from datetime import datetime
@@ -358,7 +420,7 @@ def send_discord_embed(title, assigned, bench):
         "footer": {
             "text": "Fantasy Setter"
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     data = {
@@ -385,6 +447,7 @@ if __name__ == "__main__":
 
     roster_xml = api_get(f"/team/{TEAM_KEY}/roster", token)
     players = parse_roster(roster_xml)
+    check_roster_sanity(players)
 
     # Optionally adjust ranks for schedule
     adjust_rankings_with_schedule(players)
