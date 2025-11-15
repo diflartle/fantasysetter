@@ -234,29 +234,30 @@ def choose_lineup(players, slots):
     
     return assigned, bench
 
-def build_payload(assigned, bench=None, date=None):
+def build_payload(assigned, bench=None, ir_players=None, date=None):
     """
     Build XML payload for roster assignment.
-    
+
     Args:
         assigned: Dict of position -> list of players
         bench: Optional list of bench players (will use 'BN' as position)
+        ir_players: Optional list of IR players (will preserve their IR/IR+ position)
         date: Optional date string (YYYY-MM-DD). Defaults to today.
-    
+
     Returns:
         XML string for roster submission
     """
     # Default to today if no date provided
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")
-    
+
     parts = [
         '<?xml version="1.0"?><fantasy_content><roster>',
         '<coverage_type>date</coverage_type>',
         f'<date>{date}</date>',
         '<players>'
     ]
-    
+
     # Add assigned players with their positions
     for pos, plist in assigned.items():
         for p in plist:
@@ -266,7 +267,7 @@ def build_payload(assigned, bench=None, date=None):
                 f"<position>{pos}</position>"
                 f"</player>"
             )
-    
+
     # Optionally add bench players
     if bench:
         for p in bench:
@@ -276,9 +277,19 @@ def build_payload(assigned, bench=None, date=None):
                 f"<position>BN</position>"
                 f"</player>"
             )
-    
+
+    # Optionally add IR players (preserve their current IR position)
+    if ir_players:
+        for p in ir_players:
+            parts.append(
+                f"<player>"
+                f"<player_key>{p['player_key']}</player_key>"
+                f"<position>{p['sel']}</position>"
+                f"</player>"
+            )
+
     parts.append('</players></roster></fantasy_content>')
-    
+
     return "".join(parts)
 
 def apply_lineup(team_key, payload, token):
@@ -288,35 +299,41 @@ def apply_lineup(team_key, payload, token):
     }, data=payload)
     return r.status_code, r.text
 
-def has_lineup_changed(players, assigned, bench):
+def has_lineup_changed(players, assigned, bench, ir_players=None):
     """
     Check if the proposed lineup differs from current lineup.
-    
+
     Args:
         players: List of all players with their current 'sel' positions
         assigned: Dict of proposed position assignments
         bench: List of proposed bench players
-    
+        ir_players: Optional list of IR players (their positions remain unchanged)
+
     Returns:
         bool: True if lineup has changed, False otherwise
     """
     # Build a map of current assignments: player_key -> position
     current = {p['player_key']: p['sel'] for p in players}
-    
+
     # Build a map of proposed assignments: player_key -> position
     proposed = {}
     for pos, plist in assigned.items():
         for p in plist:
             proposed[p['player_key']] = pos
-    
+
     for p in bench:
         proposed[p['player_key']] = 'BN'
-    
+
+    # IR players keep their current position
+    if ir_players:
+        for p in ir_players:
+            proposed[p['player_key']] = p['sel']
+
     # Compare: if any player's position changed, return True
     for player_key in current:
         if current.get(player_key) != proposed.get(player_key):
             return True
-    
+
     return False
 
 def check_roster_sanity(players):
@@ -449,17 +466,31 @@ if __name__ == "__main__":
     players = parse_roster(roster_xml)
     check_roster_sanity(players)
 
-    # Optionally adjust ranks for schedule
-    adjust_rankings_with_schedule(players)
+    # Separate IR player from active roster (there can only be one IR slot)
+    ir_players = [p for p in players if p.get('sel') in ('IR', 'IR+', 'NA')]
+    active_players = [p for p in players if p.get('sel') not in ('IR', 'IR+', 'NA')]
 
-    assigned, bench = choose_lineup(players, SLOTS)
-    
+    if len(ir_players) > 1:
+        # This shouldn't happen, but handle it gracefully
+        print(f"⚠️ Warning: Found {len(ir_players)} players in IR slots, but only 1 IR slot exists!")
+        print(f"   This may indicate an issue with Yahoo's API response.")
+
+    if ir_players:
+        print(f"ℹ️ Found {len(ir_players)} player(s) in IR slot - preserving their position")
+        for p in ir_players:
+            print(f"   - {p['name']} ({p['sel']})")
+
+    # Optionally adjust ranks for schedule (only for active players)
+    adjust_rankings_with_schedule(active_players)
+
+    assigned, bench = choose_lineup(active_players, SLOTS)
+
     # Check if lineup actually changed
-    if not has_lineup_changed(players, assigned, bench):
+    if not has_lineup_changed(players, assigned, bench, ir_players):
         print("✅ Lineup is already optimal - no changes needed.")
     else:
-        payload = build_payload(assigned, bench)
-        
+        payload = build_payload(assigned, bench, ir_players)
+
         print("🟢 Submitting lineup changes...")
         code, text = apply_lineup(TEAM_KEY, payload, token)
 
