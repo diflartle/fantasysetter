@@ -58,6 +58,17 @@
             transition: all 0.2s;
         }
 
+        #loadBtn {
+            background: #ed8936;
+            color: white;
+        }
+
+        #loadBtn:hover {
+            background: #dd6b20;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
+        }
+
         #saveBtn {
             background: #667eea;
             color: white;
@@ -170,9 +181,11 @@
         <p class="subtitle">Drag and drop to reorder players</p>
 
         <div class="button-container">
+            <button id="loadBtn">Load rankings.json</button>
             <button id="saveBtn">Save rankings.json</button>
             <button id="copyBtn">Copy JSON</button>
         </div>
+        <input type="file" id="fileInput" accept=".json" style="display: none;">
 
         <div id="feedback" class="feedback"></div>
 
@@ -180,33 +193,11 @@
     </div>
 
     <script>
-        // Initial rankings data
-        const initialRankings = {
-            "Sam Reinhart": 4,
-            "Wyatt Johnston": 7,
-            "Jesper Bratt": 5,
-            "Timo Meier": 9,
-            "Tom Wilson": 6,
-            "Blake Coleman": 14,
-            "Noah Dobson": 8,
-            "Charlie McAvoy": 12,
-            "Seth Jones": 11,
-            "Alexander Nikishin": 13,
-            "Lian Bichsel": 16,
-            "Aliaksei Protas": 10,
-            "Mike Matheson": 15,
-            "Connor Bedard": 3,
-            "Nathan MacKinnon": 2,
-            "Leon Draisaitl": 1,
-            "Joey Daccord": 17,
-            "Scott Wedgewood": 18
-        };
-
         let players = [];
 
         // Initialize players array sorted by rank
-        function initializePlayers() {
-            players = Object.entries(initialRankings)
+        function initializePlayers(rankingsData) {
+            players = Object.entries(rankingsData)
                 .map(([name, rank]) => ({ name, rank }))
                 .sort((a, b) => a.rank - b.rank);
             renderPlayers();
@@ -216,6 +207,11 @@
         function renderPlayers() {
             const playerList = document.getElementById('playerList');
             playerList.innerHTML = '';
+
+            if (players.length === 0) {
+                playerList.innerHTML = '<li style="text-align: center; padding: 40px; color: #a0aec0; font-size: 16px;">Click "Load rankings.json" to get started</li>';
+                return;
+            }
 
             players.forEach((player, index) => {
                 const li = document.createElement('li');
@@ -306,6 +302,30 @@
             return rankings;
         }
 
+        // Load button handler
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const rankingsData = JSON.parse(event.target.result);
+                    initializePlayers(rankingsData);
+                    showFeedback(`Loaded ${Object.keys(rankingsData).length} players from ${file.name}`);
+                } catch (err) {
+                    showFeedback('Error: Invalid JSON file');
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+        });
+
         // Save button handler
         document.getElementById('saveBtn').addEventListener('click', () => {
             const rankings = generateRankingsJSON();
@@ -357,8 +377,8 @@
             }, 3000);
         }
 
-        // Initialize on page load
-        initializePlayers();
+        // Initialize empty state on page load
+        renderPlayers();
     </script>
 </body>
 </html>
