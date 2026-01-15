@@ -6,6 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
 from dotenv import load_dotenv
+import logging
 load_dotenv()
 
 CLIENT_ID = os.getenv("YAHOO_CLIENT_ID")
@@ -39,26 +40,26 @@ def send_email(subject, body):
             smtp.starttls()
             smtp.login(sender, password)
             smtp.send_message(msg)
-        print("📧 Email sent successfully.")
+        logging.info("📧 Email sent successfully.")
     except Exception as e:
-        print("⚠️ Failed to send email:", e)
+        logging.error("⚠️ Failed to send email:", e)
 
 def send_discord_message(subject, body):
     import requests, json, os
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook_url:
-        print("⚠️ No DISCORD_WEBHOOK_URL found in .env")
+        logging.error("⚠️ No DISCORD_WEBHOOK_URL found in .env")
         return
 
     content = f"**{subject}**\n```{body}```"
     try:
         r = requests.post(webhook_url, json={"content": content})
         if r.status_code == 204:
-            print("📨 Discord message sent.")
+            logging.info("📨 Discord message sent.")
         else:
-            print(f"⚠️ Discord webhook failed ({r.status_code}): {r.text}")
+            logging.error(f"⚠️ Discord webhook failed ({r.status_code}): {r.text}")
     except Exception as e:
-        print("⚠️ Discord webhook error:", e)
+        logging.error("⚠️ Discord webhook error:", e)
 
 def load_tokens():
     with open(TOKEN_FILE) as f: return json.load(f)
@@ -138,7 +139,7 @@ def get_active_teams(date):
     try:
         games_data = requests.get(api_url, timeout=10).json()
         if not games_data.get("gameWeek") or not games_data["gameWeek"][0].get("games"):
-            print(f"⚠️ No games found for {today_str}")
+            logging.info(f"⚠️ No games found for {today_str}")
             return []
         teams = [
             team_abbr for game in games_data["gameWeek"][0]["games"]
@@ -146,7 +147,7 @@ def get_active_teams(date):
         ]
         return teams
     except Exception as e:
-        print(f"⚠️ Error fetching NHL schedule: {e}")
+        logging.error(f"⚠️ Error fetching NHL schedule: {e}")
         return []
 
 def adjust_rankings_with_schedule(players):
@@ -183,6 +184,7 @@ def choose_lineup(players, slots):
     Assigns players to positions based on Rank, using a 'Lookahead' strategy
     to resolve dual-eligibility conflicts optimally.
     """
+    logging.info("Calculating optimal lineup...")
     # Separate goalies from skaters
     goalies = [p for p in players if p["eligible"] == ["G"]]
     skaters = [p for p in players if "G" not in p["eligible"]]
@@ -210,6 +212,7 @@ def choose_lineup(players, slots):
         available = get_available_positions(player)
         
         if not available:
+            logging.info(f"  BENCHED: {player['name']} (Rank {player['rank']}) - No slots left in {get_eligible_positions(player)}")
             continue # Benched
             
         if len(available) == 1:
@@ -217,6 +220,7 @@ def choose_lineup(players, slots):
             pos = available[0]
             assigned[pos].append(player)
             used.add(player["player_key"])
+            logging.info(f"  ASSIGNED: {player['name']} (Rank {player['rank']}) -> {pos} (Only option)")
         else:
             # SMART LOOKAHEAD:
             # If player fits multiple slots (e.g. LW/RW), take the one that 
@@ -245,6 +249,11 @@ def choose_lineup(players, slots):
             assigned[chosen_pos].append(player)
             used.add(player["player_key"])
             
+            # Log the smart decision
+            logging.info(f"  DECISION: {player['name']} (Rank {player['rank']}) -> {chosen_pos}")
+            logging.info(f"    - Options were: {available}")
+            logging.info(f"    - Next best alternatives: {best_alternative_ranks} (Chose path blocking the worst alternative)")
+
     # Fill goalie positions (Rank-based)
     goalies.sort(key=lambda x: x["rank"])
     for g in goalies[:slots["G"]]:
@@ -428,7 +437,7 @@ def send_discord_embed(title, assigned, bench):
 
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook_url:
-        print("⚠️ No DISCORD_WEBHOOK_URL found in .env")
+        logging.error("⚠️ No DISCORD_WEBHOOK_URL found in .env")
         return
 
     # Build the formatted lineup
@@ -472,11 +481,11 @@ def send_discord_embed(title, assigned, bench):
     try:
         r = requests.post(webhook_url, json=data)
         if r.status_code in (200, 204):
-            print("📨 Discord embed sent.")
+            logging.info("📨 Discord embed sent.")
         else:
-            print(f"⚠️ Discord webhook failed ({r.status_code}): {r.text}")
+            logging.error(f"⚠️ Discord webhook failed ({r.status_code}): {r.text}")
     except Exception as e:
-        print("⚠️ Discord webhook error:", e)
+        logging.error("⚠️ Discord webhook error:", e)
 
 
 def print_lineup(assigned, bench):
@@ -501,48 +510,59 @@ def print_lineup(assigned, bench):
     print("\n")
 
 if __name__ == "__main__":
-    token = refresh()
-    print(f"[{datetime.now()}] refreshed token")
+    # Configure logging to write to a file
+    logging.basicConfig(
+        filename='logs/fantasy.log',
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.info("=== Starting Fantasy Lineup Setter ===")
+    try:
+        token = refresh()
+        logging.info("Token refreshed successfully.")
 
-    TEAM_KEY = os.getenv("YAHOO_TEAM_KEY")
-    if not TEAM_KEY:
-        raise SystemExit("Missing YAHOO_TEAM_KEY in .env")
+        TEAM_KEY = os.getenv("YAHOO_TEAM_KEY")
+        if not TEAM_KEY:
+            raise SystemExit("Missing YAHOO_TEAM_KEY in .env")
 
-    roster_xml = api_get(f"/team/{TEAM_KEY}/roster", token)
-    players = parse_roster(roster_xml)
-    check_roster_sanity(players)
+        roster_xml = api_get(f"/team/{TEAM_KEY}/roster", token)
+        players = parse_roster(roster_xml)
+        check_roster_sanity(players)
 
-    # Separate IR player from active roster (there can only be one IR slot)
-    ir_players = [p for p in players if p.get('sel') in ('IR', 'IR+', 'NA')]
-    active_players = [p for p in players if p.get('sel') not in ('IR', 'IR+', 'NA')]
+        # Separate IR player from active roster (there can only be one IR slot)
+        ir_players = [p for p in players if p.get('sel') in ('IR', 'IR+', 'NA')]
+        active_players = [p for p in players if p.get('sel') not in ('IR', 'IR+', 'NA')]
 
-    if len(ir_players) > 1:
-        # This shouldn't happen, but handle it gracefully
-        print(f"⚠️ Warning: Found {len(ir_players)} players in IR slots, but only 1 IR slot exists!")
-        print(f"   This may indicate an issue with Yahoo's API response.")
+        if len(ir_players) > 1:
+            # This shouldn't happen, but handle it gracefully
+            logging.error(f"⚠️ Warning: Found {len(ir_players)} players in IR slots, but only 1 IR slot exists!")
+            logging.error(f"   This may indicate an issue with Yahoo's API response.")
 
-    if ir_players:
-        print(f"ℹ️ Found {len(ir_players)} player(s) in IR slot - preserving their position")
-        for p in ir_players:
-            print(f"   - {p['name']} ({p['sel']})")
+        if ir_players:
+            logging.info(f"ℹ️ Found {len(ir_players)} player(s) in IR slot - preserving their position")
+            for p in ir_players:
+                logging.info(f"   - {p['name']} ({p['sel']})")
 
-    # Optionally adjust ranks for schedule (only for active players)
-    adjust_rankings_with_schedule(active_players)
+        # Optionally adjust ranks for schedule (only for active players)
+        adjust_rankings_with_schedule(active_players)
 
-    assigned, bench = choose_lineup(active_players, SLOTS)
+        assigned, bench = choose_lineup(active_players, SLOTS)
 
-    # Check if lineup actually changed
-    if not has_lineup_changed(players, assigned, bench, ir_players):
-        print("✅ Lineup is already optimal - no changes needed.")
-    else:
-        payload = build_payload(assigned, bench, ir_players)
-
-        print("🟢 Submitting lineup changes...")
-        code, text = apply_lineup(TEAM_KEY, payload, token)
-
-        if code == 200:
-            print("✅ Lineup successfully applied.")
-            send_discord_embed("Fantasy Lineup Updated", assigned, bench)
+        # Check if lineup actually changed
+        if not has_lineup_changed(players, assigned, bench, ir_players):
+            logging.info("Lineup is already optimal. No changes made.")
         else:
-            print(f"⚠️ Error setting lineup ({code}): {text}")
-            send_email("Fantasy Lineup Error", f"Error code {code}:\n\n{text}")
+            logging.info("Submitting new lineup...")
+            payload = build_payload(assigned, bench, ir_players)
+            code, text = apply_lineup(TEAM_KEY, payload, token)
+
+            if code == 200:
+                logging.info("SUCCESS: Lineup successfully applied.")
+                send_discord_embed("Fantasy Lineup Updated", assigned, bench)
+            else:
+                logging.error(f"FAILURE: Yahoo API returned {code}: {text}")
+                send_email("Fantasy Lineup Error", f"Error code {code}:\n\n{text}")
+    except Exception as e:
+        logging.exception("CRITICAL ERROR: Script crashed.")
+        send_email("Fantasy Setter Error", "Script crashed in main.")
