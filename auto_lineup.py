@@ -101,20 +101,34 @@ def parse_roster(xml):
     root = ET.fromstring(xml)
     players = []
     namespace = {'ns': 'http://fantasysports.yahooapis.com/fantasy/v2/base.rng'}
+    
     # Load custom rankings
     rankings = {}
     if os.path.exists("rankings.json"):
         with open("rankings.json") as f:
             rankings = json.load(f)
+            
     for p in root.findall(".//ns:player", namespace):
         pk = find_text(p, "ns:player_key", namespace)
         name = find_text(p, "ns:name/ns:full", namespace) or find_text(p, "ns:name", namespace)
         elig = [x.text for x in p.findall(".//ns:eligible_positions/ns:position", namespace)]
         sel = find_text(p, "ns:selected_position/ns:position", namespace)
         team_abbr = find_text(p, "ns:editorial_team_abbr", namespace)
+        
+        status = find_text(p, "ns:status", namespace)
+        
         # Use custom ranking if available, otherwise use default
         rank = rankings.get(name, 9999)
-        players.append({"player_key":pk,"name":name,"eligible":elig,"sel":sel,"team_abbr":team_abbr,"rank":rank})
+        
+        players.append({
+            "player_key": pk, 
+            "name": name, 
+            "eligible": elig, 
+            "sel": sel, 
+            "team_abbr": team_abbr, 
+            "rank": rank,
+            "status": status  # Store the status
+        })
     return players
 
 def get_active_teams(date):
@@ -136,27 +150,38 @@ def get_active_teams(date):
         return []
 
 def adjust_rankings_with_schedule(players):
-    """Inflate rank for players with no game today."""
+    """
+    Adjust rank based on Schedule AND Injury status.
+    
+    Priority Levels:
+    1. Healthy + Game Today (Base Rank)
+    2. Healthy + No Game    (Base Rank + 10,000)
+    3. Injured (O/IR)       (Base Rank + 20,000) -> Always benched if possible
+    """
     today = datetime.now().strftime("%Y-%m-%d")
+    
     def normalize_team_abbrev(abbrev):
         return TEAM_ABBREV_MAP.get(abbrev, abbrev)
-    active_teams = [normalize_team_abbrev(t) for t in get_active_teams(today)]  # From NHL API
+        
+    active_teams = [normalize_team_abbrev(t) for t in get_active_teams(today)]
+    
     for p in players:
+        # 1. CHECK INJURY STATUS
+        # 'O' (Out) and 'IR' definitely won't play. 
+        # We treat 'DTD' (Day-to-Day) as active because they often play.
+        if p.get("status") in ["O", "IR", "IR+"]:
+            p["rank"] += 20000  # Massive penalty puts them at bottom of list
+            continue  # Skip schedule check; injury overrides schedule
+
+        # 2. CHECK SCHEDULE
         team = p.get("team_abbr")
         if team not in active_teams:
-            p["rank"] += 9999
+            p["rank"] += 10000  # Penalty puts them on bench, but above injured players
 
 def choose_lineup(players, slots):
     """
-    Optimally assign players to roster positions.
-    
-    Args:
-        players: List of player dicts with 'eligible', 'rank', 'player_key'
-        slots: Dict of position -> count (e.g., {'C': 2, 'LW': 2, 'RW': 2, 'D': 4, 'G': 2})
-    
-    Returns:
-        assigned: Dict of position -> list of players
-        bench: List of unassigned players
+    Assigns players to positions based on Rank, using a 'Lookahead' strategy
+    to resolve dual-eligibility conflicts optimally.
     """
     # Separate goalies from skaters
     goalies = [p for p in players if p["eligible"] == ["G"]]
@@ -165,64 +190,62 @@ def choose_lineup(players, slots):
     assigned = defaultdict(list)
     used = set()
     
-    # Process skaters
     skater_positions = ["C", "LW", "RW", "D"]
     
     def get_eligible_positions(player):
-        """Get list of skater positions player is eligible for"""
         return [pos for pos in player["eligible"] if pos in skater_positions]
     
     def get_available_positions(player):
-        """Get positions player is eligible for that still have slots"""
         eligible = get_eligible_positions(player)
         return [pos for pos in eligible if len(assigned[pos]) < slots[pos]]
     
-    # Sort skaters by rank (best first)
+    # Sort skaters by rank (Best players first)
+    # Because of adjust_rankings, this order is: Playing > No Game > Injured
     skaters.sort(key=lambda x: x["rank"])
     
-    # Multi-pass assignment strategy
-    # Pass 1: Assign players who can only fill one position type
     for player in skaters:
         if player["player_key"] in used:
             continue
-        
+            
         available = get_available_positions(player)
-        if len(available) == 1 and player['rank'] < 9999:
-            assigned[available[0]].append(player)
+        
+        if not available:
+            continue # Benched
+            
+        if len(available) == 1:
+            # No choice: Take the only open slot
+            pos = available[0]
+            assigned[pos].append(player)
             used.add(player["player_key"])
-    
-    # Pass 2: Assign remaining players, prioritizing filling positions that are hardest to fill
-    # Calculate scarcity: how many remaining eligible players per remaining slot
-    while len(used) < sum(slots[pos] for pos in skater_positions):
-        # Get unfilled positions
-        unfilled = {pos: slots[pos] - len(assigned[pos]) 
-                   for pos in skater_positions 
-                   if len(assigned[pos]) < slots[pos]}
-        
-        if not unfilled:
-            break
-        
-        # Find the scarcest position (fewest eligible players per remaining slot)
-        scarcity = {}
-        for pos, remaining_slots in unfilled.items():
-            eligible_count = sum(1 for p in skaters 
-                               if p["player_key"] not in used 
-                               and pos in get_eligible_positions(p))
-            scarcity[pos] = eligible_count / remaining_slots if remaining_slots > 0 else float('inf')
-        
-        # Fill the scarcest position with best available player
-        scarcest_pos = min(scarcity, key=scarcity.get)
-        
-        # Find best ranked player eligible for this position
-        for player in skaters:
-            if player["player_key"] in used:
-                continue
-            if scarcest_pos in get_eligible_positions(player):
-                assigned[scarcest_pos].append(player)
-                used.add(player["player_key"])
-                break
-    
-    # Fill goalie positions (straightforward - just by rank)
+        else:
+            # SMART LOOKAHEAD:
+            # If player fits multiple slots (e.g. LW/RW), take the one that 
+            # saves the "scarcer" slot for a teammate.
+            
+            best_alternative_ranks = {}
+            
+            for pos in available:
+                # Find the rank of the next best AVAILABLE teammate for this position
+                best_rank_for_pos = 99999 
+                
+                for teammate in skaters:
+                    if teammate["player_key"] == player["player_key"]: continue
+                    if teammate["player_key"] in used: continue
+                    
+                    if pos in get_eligible_positions(teammate):
+                        best_rank_for_pos = teammate["rank"]
+                        break # Found best one (list is sorted)
+                
+                best_alternative_ranks[pos] = best_rank_for_pos
+            
+            # We choose the position where the ALTERNATIVE option is WORST.
+            # This saves the "good alternative" slot for the other player.
+            chosen_pos = max(best_alternative_ranks, key=best_alternative_ranks.get)
+            
+            assigned[chosen_pos].append(player)
+            used.add(player["player_key"])
+            
+    # Fill goalie positions (Rank-based)
     goalies.sort(key=lambda x: x["rank"])
     for g in goalies[:slots["G"]]:
         assigned["G"].append(g)
@@ -233,6 +256,7 @@ def choose_lineup(players, slots):
     bench.sort(key=lambda x: x["rank"])
     
     return assigned, bench
+
 
 def build_payload(assigned, bench=None, ir_players=None, date=None):
     """
@@ -453,6 +477,28 @@ def send_discord_embed(title, assigned, bench):
             print(f"⚠️ Discord webhook failed ({r.status_code}): {r.text}")
     except Exception as e:
         print("⚠️ Discord webhook error:", e)
+
+
+def print_lineup(assigned, bench):
+    print(f"\n{'POS':<4} {'PLAYER':<25} {'RANK':<6} {'STATUS'}")
+    print("-" * 45)
+    
+    # Define display order so it looks like a real roster
+    display_order = ["C", "LW", "RW", "D", "G"]
+    
+    for pos in display_order:
+        players = assigned.get(pos, [])
+        for p in players:
+            # Add a status flag if they are injured
+            status = f"({p['status']})" if p.get('status') else ""
+            print(f"{pos:<4} {p['name']:<25} {p['rank']:<6} {status}")
+            
+    print("-" * 45)
+    print("BENCH:")
+    for p in bench:
+        status = f"({p['status']})" if p.get('status') else ""
+        print(f"{'BN':<4} {p['name']:<25} {p['rank']:<6} {status}")
+    print("\n")
 
 if __name__ == "__main__":
     token = refresh()
