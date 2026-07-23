@@ -315,6 +315,7 @@ def is_season_active(team_key, token):
         logging.warning("Could not parse league key from YAHOO_TEAM_KEY; assuming season is active.")
         return True
     league_key = parts[0]
+    
     try:
         xml = api_get(f"/league/{league_key}", token)
         root = ET.fromstring(xml)
@@ -324,7 +325,19 @@ def is_season_active(team_key, token):
         if is_finished == "1" or current_week is None:
             return False
         return True
+        
+    except requests.exceptions.HTTPError as e:
+        # Catch 400, 403, and 404 errors which indicate the season/league is no longer accessible
+        if e.response.status_code in [400, 403, 404]:
+            logging.info(f"API returned {e.response.status_code} for league check. Assuming offseason is active.")
+            return False
+            
+        # For other HTTP errors (like 500 server errors), fall back to True
+        logging.warning(f"HTTP Error checking season status: {e}. Assuming active.")
+        return True
+        
     except Exception as e:
+        # Catch non-HTTP errors (like XML parsing issues)
         logging.warning(f"Could not determine season status: {e}. Assuming active.")
         return True
 
