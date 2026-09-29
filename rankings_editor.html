@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player Rankings Editor</title>
+    <title>Fantasy Roster & Rankings Editor</title>
     <style>
         * {
             margin: 0;
@@ -13,177 +13,232 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1e29 0%, #10121a 100%);
+            color: #e2e8f0;
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px 16px;
         }
 
         .container {
-            max-width: 600px;
+            max-width: 640px;
             margin: 0 auto;
-            background: white;
+            background: #232733;
             border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 30px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            padding: 24px;
+            border: 1px solid #33394a;
         }
 
         h1 {
             text-align: center;
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
+            color: #f7fafc;
+            margin-bottom: 6px;
+            font-size: 24px;
+            font-weight: 700;
         }
 
         .subtitle {
             text-align: center;
-            color: #666;
-            margin-bottom: 25px;
-            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            font-size: 13px;
         }
 
         .button-container {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-bottom: 20px;
         }
 
         button {
-            flex: 1;
-            padding: 12px 20px;
+            padding: 10px 14px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
 
         #loadBtn {
-            background: #ed8936;
+            background: #d97706;
             color: white;
         }
-
-        #loadBtn:hover {
-            background: #dd6b20;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
-        }
+        #loadBtn:hover { background: #b45309; }
 
         #saveBtn {
-            background: #667eea;
+            background: #2563eb;
             color: white;
         }
-
-        #saveBtn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
+        #saveBtn:hover { background: #1d4ed8; }
 
         #copyBtn {
-            background: #48bb78;
+            background: #059669;
             color: white;
         }
-
-        #copyBtn:hover {
-            background: #38a169;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
+        #copyBtn:hover { background: #047857; }
 
         .feedback {
             text-align: center;
             padding: 10px;
             margin-bottom: 15px;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             display: none;
+            font-weight: 500;
         }
 
         .feedback.success {
-            background: #c6f6d5;
-            color: #22543d;
+            background: #064e3b;
+            color: #6ee7b7;
             display: block;
+            border: 1px solid #059669;
+        }
+
+        .feedback.error {
+            background: #7f1d1d;
+            color: #fca5a5;
+            display: block;
+            border: 1px solid #dc2626;
         }
 
         #playerList {
             list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .player-item {
-            background: #f7fafc;
-            border: 2px solid #e2e8f0;
+            background: #2b3040;
+            border: 1px solid #3c4357;
             border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
+            padding: 10px 14px;
             display: flex;
             align-items: center;
-            cursor: move;
-            transition: all 0.2s;
+            gap: 12px;
+            cursor: grab;
+            transition: background 0.15s, border-color 0.15s, transform 0.15s;
+            user-select: none;
         }
 
         .player-item:hover {
-            background: #edf2f7;
-            border-color: #cbd5e0;
+            background: #32384a;
+            border-color: #4f576e;
         }
 
         .player-item.dragging {
-            opacity: 0.5;
+            opacity: 0.4;
             transform: scale(0.98);
         }
 
         .player-item.drag-over {
-            border-color: #667eea;
-            border-style: dashed;
-            background: #e9ecfc;
+            border-color: #3b82f6;
+            background: #1e293b;
         }
 
         .rank-number {
-            background: #667eea;
+            background: #3b82f6;
             color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-            margin-right: 15px;
+            font-weight: 700;
+            font-size: 14px;
             flex-shrink: 0;
         }
 
-        .player-name {
+        .player-info {
             flex: 1;
-            font-size: 16px;
-            color: #2d3748;
-            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .player-name {
+            font-size: 15px;
+            color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .player-meta {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            font-size: 11px;
+        }
+
+        .tag-team {
+            background: #374151;
+            color: #93c5fd;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        .tag-pos {
+            background: #1f2937;
+            color: #9ca3af;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        .quick-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .move-btn {
+            background: #1e222d;
+            color: #94a3b8;
+            border: 1px solid #33394a;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .move-btn:hover:not(:disabled) {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
         }
 
         .drag-handle {
-            color: #cbd5e0;
-            font-size: 20px;
-            cursor: grab;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
+            color: #4b5563;
+            font-size: 18px;
+            padding-left: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Player Rankings Editor</h1>
-        <p class="subtitle">Drag and drop to reorder players</p>
+        <h1>Rankings & Roster Editor</h1>
+        <p class="subtitle">Use ▲ / ▼ buttons or drag and drop to re-order players</p>
 
         <div class="button-container">
-            <button id="loadBtn">Load rankings.json</button>
-            <button id="saveBtn">Save rankings.json</button>
-            <button id="copyBtn">Copy JSON</button>
+            <button id="loadBtn">📂 Open File</button>
+            <button id="saveBtn">💾 Save File</button>
+            <button id="copyBtn">📋 Copy JSON</button>
         </div>
         <input type="file" id="fileInput" accept=".json" style="display: none;">
 
@@ -194,22 +249,31 @@
 
     <script>
         let players = [];
+        let loadedFormat = 'roster'; // 'roster' (array of objects) or 'dict' ({"name": rank})
+        let fileHandle = null;
 
-        // Initialize players array sorted by rank
-        function initializePlayers(rankingsData) {
-            players = Object.entries(rankingsData)
-                .map(([name, rank]) => ({ name, rank }))
-                .sort((a, b) => a.rank - b.rank);
+        function initializeData(data) {
+            if (Array.isArray(data)) {
+                loadedFormat = 'roster';
+                // Sort by rank if existing, or use array order
+                players = [...data].sort((a, b) => (a.rank || 9999) - (b.rank || 9999));
+            } else if (typeof data === 'object' && data !== null) {
+                loadedFormat = 'dict';
+                players = Object.entries(data)
+                    .map(([name, rank]) => ({ name, rank: Number(rank) }))
+                    .sort((a, b) => a.rank - b.rank);
+            } else {
+                throw new Error("Unrecognized JSON format");
+            }
             renderPlayers();
         }
 
-        // Render player list
         function renderPlayers() {
-            const playerList = document.getElementById('playerList');
-            playerList.innerHTML = '';
+            const list = document.getElementById('playerList');
+            list.innerHTML = '';
 
             if (players.length === 0) {
-                playerList.innerHTML = '<li style="text-align: center; padding: 40px; color: #a0aec0; font-size: 16px;">Click "Load rankings.json" to get started</li>';
+                list.innerHTML = '<li style="text-align:center; padding: 40px; color: #64748b; font-size: 14px;">Open your roster.json or rankings.json to begin</li>';
                 return;
             }
 
@@ -219,13 +283,23 @@
                 li.draggable = true;
                 li.dataset.index = index;
 
+                const teamTag = player.team ? `<span class="tag-team">${player.team}</span>` : '';
+                const posTag = player.eligible ? `<span class="tag-pos">${player.eligible.join('/')}</span>` : '';
+
                 li.innerHTML = `
                     <div class="rank-number">${index + 1}</div>
-                    <div class="player-name">${player.name}</div>
+                    <div class="player-info">
+                        <div class="player-name">${player.name}</div>
+                        ${(teamTag || posTag) ? `<div class="player-meta">${teamTag}${posTag}</div>` : ''}
+                    </div>
+                    <div class="quick-controls">
+                        <button class="move-btn" onclick="movePlayer(${index}, -1)" ${index === 0 ? 'disabled' : ''}>▲</button>
+                        <button class="move-btn" onclick="movePlayer(${index}, 1)" ${index === players.length - 1 ? 'disabled' : ''}>▼</button>
+                    </div>
                     <div class="drag-handle">⋮⋮</div>
                 `;
 
-                // Drag event listeners
+                // Drag event bindings
                 li.addEventListener('dragstart', handleDragStart);
                 li.addEventListener('dragover', handleDragOver);
                 li.addEventListener('drop', handleDrop);
@@ -233,151 +307,149 @@
                 li.addEventListener('dragleave', handleDragLeave);
                 li.addEventListener('dragend', handleDragEnd);
 
-                playerList.appendChild(li);
+                list.appendChild(li);
             });
         }
 
-        // Drag and drop handlers
-        let draggedElement = null;
+        // Quick button move
+        window.movePlayer = function(index, delta) {
+            const target = index + delta;
+            if (target < 0 || target >= players.length) return;
+            const temp = players[index];
+            players.splice(index, 1);
+            players.splice(target, 0, temp);
+            renderPlayers();
+        };
+
+        // Drag & Drop
+        let draggedIndex = null;
 
         function handleDragStart(e) {
-            draggedElement = this;
+            draggedIndex = parseInt(this.dataset.index);
             this.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.innerHTML);
         }
 
         function handleDragOver(e) {
-            if (e.preventDefault) {
-                e.preventDefault();
-            }
+            e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             return false;
         }
 
-        function handleDragEnter(e) {
-            if (this !== draggedElement) {
-                this.classList.add('drag-over');
-            }
+        function handleDragEnter() {
+            this.classList.add('drag-over');
         }
 
-        function handleDragLeave(e) {
+        function handleDragLeave() {
             this.classList.remove('drag-over');
         }
 
         function handleDrop(e) {
-            if (e.stopPropagation) {
-                e.stopPropagation();
-            }
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+            const targetIndex = parseInt(this.dataset.index);
 
-            if (draggedElement !== this) {
-                const draggedIndex = parseInt(draggedElement.dataset.index);
-                const targetIndex = parseInt(this.dataset.index);
-
-                // Reorder players array
-                const draggedPlayer = players[draggedIndex];
+            if (draggedIndex !== null && draggedIndex !== targetIndex) {
+                const moved = players[draggedIndex];
                 players.splice(draggedIndex, 1);
-                players.splice(targetIndex, 0, draggedPlayer);
-
-                // Re-render
+                players.splice(targetIndex, 0, moved);
                 renderPlayers();
             }
-
             return false;
         }
 
-        function handleDragEnd(e) {
+        function handleDragEnd() {
             this.classList.remove('dragging');
-            document.querySelectorAll('.player-item').forEach(item => {
-                item.classList.remove('drag-over');
-            });
+            document.querySelectorAll('.player-item').forEach(el => el.classList.remove('drag-over'));
         }
 
-        // Generate rankings JSON object
-        function generateRankingsJSON() {
-            const rankings = {};
-            players.forEach((player, index) => {
-                rankings[player.name] = index + 1;
-            });
-            return rankings;
+        function getExportPayload() {
+            if (loadedFormat === 'roster') {
+                return players.map((p, idx) => ({ ...p, rank: idx + 1 }));
+            } else {
+                const rankingsDict = {};
+                players.forEach((p, idx) => { rankingsDict[p.name] = idx + 1; });
+                return rankingsDict;
+            }
         }
 
-        // Load button handler
-        document.getElementById('loadBtn').addEventListener('click', () => {
+        // Open File (File System Access API with fallback)
+        document.getElementById('loadBtn').addEventListener('click', async () => {
+            if (window.showOpenFilePicker) {
+                try {
+                    [fileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    initializeData(JSON.parse(text));
+                    showFeedback(`Loaded ${players.length} players from ${file.name}`);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
             document.getElementById('fileInput').click();
         });
 
-        // File input handler
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
-                    const rankingsData = JSON.parse(event.target.result);
-                    initializePlayers(rankingsData);
-                    showFeedback(`Loaded ${Object.keys(rankingsData).length} players from ${file.name}`);
-                } catch (err) {
-                    showFeedback('Error: Invalid JSON file');
-                    console.error(err);
+                    initializeData(JSON.parse(event.target.result));
+                    showFeedback(`Loaded ${players.length} players from ${file.name}`);
+                } catch {
+                    showFeedback('Error: Invalid JSON file', true);
                 }
             };
             reader.readAsText(file);
         });
 
-        // Save button handler
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const rankings = generateRankingsJSON();
-            const jsonString = JSON.stringify(rankings, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+        // Save File (Writes directly back to file if opened via File System API)
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const payload = getExportPayload();
+            const text = JSON.stringify(payload, null, 2);
 
+            if (fileHandle && fileHandle.createWritable) {
+                try {
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(text);
+                    await writable.close();
+                    showFeedback('Saved directly to file!');
+                    return;
+                } catch (e) {
+                    console.warn("Direct write failed, falling back to download", e);
+                }
+            }
+
+            const blob = new Blob([text], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'rankings.json';
+            a.download = loadedFormat === 'roster' ? 'roster.json' : 'rankings.json';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            showFeedback('Rankings saved! Check your downloads folder.');
+            showFeedback('File downloaded to Downloads folder');
         });
 
-        // Copy button handler
+        // Copy JSON
         document.getElementById('copyBtn').addEventListener('click', async () => {
-            const rankings = generateRankingsJSON();
-            const jsonString = JSON.stringify(rankings, null, 2);
-
-            try {
-                await navigator.clipboard.writeText(jsonString);
-                showFeedback('JSON copied to clipboard!');
-            } catch (err) {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = jsonString;
-                textArea.style.position = 'fixed';
-                textArea.style.left = '-9999px';
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showFeedback('JSON copied to clipboard!');
-            }
+            const payload = getExportPayload();
+            await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+            showFeedback('Copied JSON to clipboard!');
         });
 
-        // Show feedback message
-        function showFeedback(message) {
-            const feedback = document.getElementById('feedback');
-            feedback.textContent = message;
-            feedback.className = 'feedback success';
-
-            setTimeout(() => {
-                feedback.className = 'feedback';
-            }, 3000);
+        function showFeedback(msg, isError = false) {
+            const fb = document.getElementById('feedback');
+            fb.textContent = msg;
+            fb.className = `feedback ${isError ? 'error' : 'success'}`;
+            setTimeout(() => { fb.className = 'feedback'; }, 3000);
         }
 
-        // Initialize empty state on page load
         renderPlayers();
     </script>
 </body>

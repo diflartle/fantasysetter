@@ -1,20 +1,110 @@
 [
-  {"name": "Nathan MacKinnon", "team": "COL", "eligible": ["C"], "rank": 1},
-  {"name": "Leon Draisaitl", "team": "EDM", "eligible": ["C","LW"], "rank": 2},
-  {"name": "Connor Bedard", "team": "CHI", "eligible": ["C","RW"], "rank": 3},
-  {"name": "Mitch Marner", "team": "VGK", "eligible": ["C","LW","RW"], "rank": 4},
-  {"name": "Filip Forsberg", "team": "NSH", "eligible": ["LW"], "rank": 5},
-  {"name": "Nick Schmaltz", "team": "UTA", "eligible": ["C","RW"], "rank": 6},
-  {"name": "Miro Heiskanen", "team": "DAL", "eligible": ["D"], "rank": 7},
-  {"name": "Thomas Harley", "team": "DAL", "eligible": ["D"], "rank": 8},
-  {"name": "Victor Hedman", "team": "TB", "eligible": ["D"], "rank": 9},
-  {"name": "Jeremy Lauzon", "team": "VGK", "eligible": ["D"], "rank": 10},
-  {"name": "Gavin McKenna", "team": "TOR", "eligible": ["LW"], "rank": 11},
-  {"name": "Morgan Geekie", "team": "BOS", "eligible": ["C","LW","RW"], "rank": 12},
-  {"name": "Tom Wilson", "team": "WSH", "eligible": ["RW"], "rank": 13},
-  {"name": "Darnell Nurse", "team": "SJ", "eligible": ["D"], "rank": 14},
-  {"name": "Mike Matheson", "team": "MTL", "eligible": ["D"], "rank": 15},
-  {"name": "Esa Lindell", "team": "DAL", "eligible": ["D"], "rank": 16},
-  {"name": "Ilya Sorokin", "team": "NYI", "eligible": ["G"], "rank": 17},
-  {"name": "Yaroslav Askarov", "team": "SJ", "eligible": ["g"], "rank": 18}
+  {
+    "name": "Nathan MacKinnon",
+    "team": "COL",
+    "eligible": ["C"],
+    "rank": 1
+  },
+  {
+    "name": "Leon Draisaitl",
+    "team": "EDM",
+    "eligible": ["C", "LW"],
+    "rank": 2
+  },
+  {
+    "name": "Connor Bedard",
+    "team": "CHI",
+    "eligible": ["C", "RW"],
+    "rank": 3
+  },
+  {
+    "name": "Mitch Marner",
+    "team": "VGK",
+    "eligible": ["C", "LW", "RW"],
+    "rank": 4
+  },
+  {
+    "name": "Filip Forsberg",
+    "team": "NSH",
+    "eligible": ["LW"],
+    "rank": 5
+  },
+  {
+    "name": "Nick Schmaltz",
+    "team": "UTA",
+    "eligible": ["C", "RW"],
+    "rank": 6
+  },
+  {
+    "name": "Tom Wilson",
+    "team": "WSH",
+    "eligible": ["RW"],
+    "rank": 7
+  },
+  {
+    "name": "Morgan Geekie",
+    "team": "BOS",
+    "eligible": ["C", "LW", "RW"],
+    "rank": 8
+  },
+  {
+    "name": "Gavin McKenna",
+    "team": "TOR",
+    "eligible": ["LW"],
+    "rank": 9
+  },
+  {
+    "name": "Miro Heiskanen",
+    "team": "DAL",
+    "eligible": ["D"],
+    "rank": 10
+  },
+  {
+    "name": "Thomas Harley",
+    "team": "DAL",
+    "eligible": ["D"],
+    "rank": 11
+  },
+  {
+    "name": "Victor Hedman",
+    "team": "TB",
+    "eligible": ["D"],
+    "rank": 12
+  },
+  {
+    "name": "Jeremy Lauzon",
+    "team": "VGK",
+    "eligible": ["D"],
+    "rank": 13
+  },
+  {
+    "name": "Darnell Nurse",
+    "team": "SJ",
+    "eligible": ["D"],
+    "rank": 14
+  },
+  {
+    "name": "Mike Matheson",
+    "team": "MTL",
+    "eligible": ["D"],
+    "rank": 15
+  },
+  {
+    "name": "Esa Lindell",
+    "team": "DAL",
+    "eligible": ["D"],
+    "rank": 16
+  },
+  {
+    "name": "Ilya Sorokin",
+    "team": "NYI",
+    "eligible": ["G"],
+    "rank": 17
+  },
+  {
+    "name": "Yaroslav Askarov",
+    "team": "SJ",
+    "eligible": ["g"],
+    "rank": 18
+  }
 ]
